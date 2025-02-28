@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mines Game</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: var(--tg-theme-text-color, #000);
+            background: var(--tg-theme-bg-color, #fff);
+        }
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .cell {
+            aspect-ratio: 1;
+            border: none;
+            border-radius: 8px;
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #fff);
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .stats {
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        .cashout {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #fff);
+            font-size: 16px;
+            margin-top: 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="stats">
+        Множитель: <span id="multiplier">x1.0</span>
+    </div>
+    <div class="game-grid" id="gameGrid"></div>
+    <button class="cashout" id="cashoutButton">Забрать выигрыш</button>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        const gameState = {
+            multiplier: 1.0,
+            openedCells: 0,
+            mines: new Set(),
+            isGameOver: false
+        };
+
+        // Генерация мин
+        function generateMines() {
+            while(gameState.mines.size < 5) {
+                const position = Math.floor(Math.random() * 25);
+                gameState.mines.add(position);
+            }
+        }
+
+        // Создание игрового поля
+        function createGrid() {
+            const grid = document.getElementById('gameGrid');
+            for(let i = 0; i < 25; i++) {
+                const cell = document.createElement('button');
+                cell.className = 'cell';
+                cell.dataset.position = i;
+                cell.addEventListener('click', () => handleCellClick(i));
+                grid.appendChild(cell);
+            }
+            generateMines();
+        }
+
+        // Обработка клика по ячейке
+        function handleCellClick(position) {
+            if(gameState.isGameOver) return;
+            
+            const cell = document.querySelector(`[data-position="${position}"]`);
+            
+            if(gameState.mines.has(position)) {
+                cell.textContent = '💥';
+                cell.style.background = '#ff4444';
+                gameState.isGameOver = true;
+                revealAllMines();
+                tg.showAlert('Игра окончена! Вы попали на мину!');
+            } else {
+                cell.textContent = '⭐';
+                cell.style.background = '#44ff44';
+                cell.disabled = true;
+                gameState.openedCells++;
+                updateMultiplier();
+            }
+        }
+
+        // Обновление множителя
+        function updateMultiplier() {
+            gameState.multiplier = 1 + (gameState.openedCells * 0.2);
+            document.getElementById('multiplier').textContent = 
+                `x${gameState.multiplier.toFixed(1)}`;
+        }
+
+        // Показать все мины при проигрыше
+        function revealAllMines() {
+            gameState.mines.forEach(position => {
+                const cell = document.querySelector(`[data-position="${position}"]`);
+                cell.textContent = '💥';
+                cell.style.background = '#ff4444';
+            });
+        }
+
+        // Обработка кнопки "Забрать выигрыш"
+        document.getElementById('cashoutButton').addEventListener('click', () => {
+            if(gameState.openedCells === 0) {
+                tg.showAlert('Откройте хотя бы одну ячейку!');
+                return;
+            }
+            
+            gameState.isGameOver = true;
+            tg.showAlert(`Поздравляем! Ваш выигрыш: x${gameState.multiplier.toFixed(1)}`);
+            tg.close();
+        });
+
+        // Инициализация игры
+        createGrid();
+    </script>
+</body>
+</html> 
